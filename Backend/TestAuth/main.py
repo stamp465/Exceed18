@@ -1,5 +1,8 @@
+# https://fastapi.tiangolo.com/tutorial/security/simple-oauth2/
 from datetime import datetime, timedelta
 from typing import Optional
+
+from pymongo import MongoClient
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -33,6 +36,10 @@ fake_users_db = {
 }
 
 
+myclient = MongoClient('mongodb://localhost', 27017)
+db = myclient["cafe"]
+collection = db["cafe_data"]
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -57,6 +64,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 app = FastAPI()
 
+def get_user_from_db() :
+    result = collection.find({},{"_id":0})
+    #print(result)
+    dic = {}
+    for r in result:
+        dic[ r['username'] ] = r
+    return dic
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -100,13 +114,15 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        #print(payload)
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    user = get_user(fake_users_db, username=token_data.username)
+    users_db = get_user_from_db()
+    user = get_user(users_db, username=token_data.username)
     if user is None:
         raise credentials_exception
     return user
@@ -120,7 +136,13 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
 
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    users_db = get_user_from_db()
+    '''print(users_db)
+    print(type(users_db))
+    print("---------")
+    print(fake_users_db)
+    print(type(fake_users_db))'''
+    user = authenticate_user(users_db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -133,11 +155,13 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.get("/hello")
+async def read_users_me():
+    return "HELLOOOOOOOOOOOOOOOOO"
 
 @app.get("/users/me/", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
-
 
 @app.get("/users/me/items/")
 async def read_own_items(current_user: User = Depends(get_current_active_user)):
