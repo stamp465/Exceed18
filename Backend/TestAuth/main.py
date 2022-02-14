@@ -17,11 +17,19 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 fake_users_db = {
     "johndoe": {
         "username": "johndoe",
-        "full_name": "John Doe",
-        "email": "johndoe@example.com",
-        "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
-        "disabled": False,
-    }
+        "cafe_name": "John Doe",
+        "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW"
+    },
+    "stamp01": {
+        "username": "stamp01",
+        "cafe_name": "Stamp Cafe",
+        "hashed_password": "$2b$12$gojzLZ51JuVgweLMgCVjSeUSc9d/MNmXhIoikzbizBYLW1zni1632"
+    },
+    "stamp04": {
+        "username": "stamp04",
+        "cafe_name": "Stamp 444 Cafe",
+        "hashed_password": "$2b$12$huDWlTMxZbq4bcDkyVuJYO9udObObHiw1H49A3XJJHv6vIApSLKDC"
+    },
 }
 
 
@@ -36,9 +44,7 @@ class TokenData(BaseModel):
 
 class User(BaseModel):
     username: str
-    email: Optional[str] = None
-    full_name: Optional[str] = None
-    disabled: Optional[bool] = None
+    cafe_name: str
 
 
 class UserInDB(User):
@@ -107,8 +113,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)):
-    if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
+    #if current_user.disabled:
+    #    raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
 
