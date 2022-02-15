@@ -25,12 +25,12 @@ class UserInDB(User):
 class QueueInDB(BaseModel):
     queue_number : int
     name : str
-    phone : int
+    phone : str
     cafe_code : int
     
 class WillQueueInDB(BaseModel):
     name : str
-    phone : int
+    phone : str
 
     
 #count queue in cafe
@@ -49,7 +49,7 @@ class NumberSit(BaseModel):
 
 #user phone
 class Phone(BaseModel):
-    number : int
+    number : str
 
 #for count user
 class UpUser(BaseModel):

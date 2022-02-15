@@ -22,7 +22,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-
 def get_user_from_db() :
     result = app_db.Cafe.find({},{"_id":0})
     #print(result)
@@ -31,6 +30,17 @@ def get_user_from_db() :
         dic[ r['username'] ] = r
     return dic
 
+def check_matching(code : int,name : str) :
+    query = {"cafe_code":code}
+    result = app_db.Cafe.find_one(query)
+    #print(result)
+    if result == None :
+        raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe "})
+    if result["cafe_name"]==name :
+        return True
+    #print(result)
+    raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe "})
+
 def get_user(db, username: str):
     if username in db:
         user_dict = db[username]
@@ -38,11 +48,14 @@ def get_user(db, username: str):
 
 def get_queuenumber(cafe_code: int):
     result =  app_db.Cafe_q.find_one({"cafe_code":cafe_code},{"_id":0})
+    #print("\n\n\ntest\n\n\n")
+    #print(cafe_code,result)
     if result != None :
+        #print(result["last_queue"])
         return result["last_queue"]
     HTTPException(404, f"Cafe Not found")
     
-    
+   
 
 def authenticate_user(fake_db, username: str, password: str):
     user = get_user(fake_db, username)
@@ -84,3 +97,4 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     if user is None:
         raise credentials_exception
     return user
+
