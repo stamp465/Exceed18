@@ -32,9 +32,17 @@ app.add_middleware(
 
 ########################### user #############################
 
+@app.get("/")
+async def root():
+    return 0
+
 @app.get("/hello")
-async def read_users_me():
-    return "HELLOOOOOOOOOOOOOOOOO"
+async def hello():
+    return "WELCOME TO CAFE"
+
+@app.get("/{cafe_name}/hello")
+async def helloCa(cafe_name:int):
+    return f"WELCOME TO {cafe_name}"
 
 @app.post("/{cafe_name}/{cafe_code}/insertqueue")
 def insert_queue(cafe_code:int,data:app_sch.WillQueueInDB):
@@ -56,8 +64,62 @@ def insert_queue(cafe_code:int,data:app_sch.WillQueueInDB):
     raise HTTPException( status_code = 406 , detail = { "msg" : f"Your phone already queue in Queue No.{a}" } )
     
 
+@app.get("/{cafe_name}/{cafe_code}/countqueue")
+async def get_queue(cafe_code:int):
+    r = app_db.Cafe_q.find_one({"cafe_code":cafe_code},{"_id":0})
+    if r == None :
+        raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
+    waitQ = r["last_queue"]-r["now_queue"]
+    return {
+        "now_queue" : r["now_queue"],
+        "last_queue" : r["last_queue"] ,
+        "wait_queue" : waitQ
+    }
 
+@app.get("/{cafe_name}/{cafe_code}/get_number_byphone")
+async def get_number_byphone(cafe_code:int,phone:app_sch.Phone):
+    query = {"phone":phone.number , "cafe_code":cafe_code}
+    result =  app_db.Queue.find_one(query,{"_id":0})
+    if result == None :
+        raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
+    return result["queue_number"]
 
+@app.get("/{cafe_name}/{cafe_code}/get_number_now_sit")
+async def get_number_sit(cafe_code:int):
+    query = {"cafe_code":cafe_code}
+    result =  app_db.Cafe_sit.find_one(query,{"_id":0})
+    if result == None :
+        raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
+    return result["now_sit"]
+
+@app.get("/{cafe_name}/{cafe_code}/get_number_sit")
+async def get_number_sit(cafe_code:int):
+    query = {"cafe_code":cafe_code}
+    r =  app_db.Cafe_sit.find_one(query,{"_id":0})
+    if r == None :
+        raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
+    return {
+        "all_sit" : r["all_sit"],
+        "now_sit" : r["now_sit"] ,
+        "user_in" : r["user_in"] ,
+        "user_out" : r["user_out"] 
+    }
+    
+@app.put("/{cafe_name}/{cafe_code}/update")
+async def update_in_out(cafe_code:int,updateuser:app_sch.UpUser):
+    query = {"cafe_code":cafe_code}
+    r =  app_db.Cafe_sit.find_one(query,{"_id":0})
+    if r == None :
+        raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
+    if updateuser.in_out == 1 :
+        newvalues = {"$set":{"user_in":r["user_in"]+1}}
+        app_db.Cafe_sit.update_one(query,newvalues)
+    elif updateuser.in_out == -1 :
+        newvalues = {"$set":{"user_out":r["user_out"]+1}}
+        app_db.Cafe_sit.update_one(query,newvalues)
+    return {
+        "result" : "update done"
+    }
 
 ########################### for admin #############################
 
@@ -87,3 +149,26 @@ async def read_users_me(current_user: app_sch.User = Depends(app_ser.get_current
 async def get_queue(cafe_code:int,current_user: app_sch.User = Depends(app_ser.get_current_user)):
     result = app_db.Queue.find({"cafe_code":cafe_code},{"_id":0})
     return result
+
+
+@app.delete("/{cafe_name}/{cafe_code}/clearqueue")
+async def clear_queue(cafe_code:int,current_user:app_sch.User = Depends(app_ser.get_current_user)):
+    query = {"cafe_code":cafe_code}
+    app_db.Queue.delete_many(query)
+    return {
+        "result" : "done"
+    }
+
+@app.delete("/{cafe_name}/{cafe_code}/deletequeue/{queue_number}")
+async def clear_queue(cafe_code:int,queue_number:int,current_user:app_sch.User = Depends(app_ser.get_current_user)):
+    query = {"cafe_code":cafe_code,"queue_number":queue_number}
+    app_db.Queue.delete_one(query)
+    query1 = {"cafe_code":cafe_code}
+    r = app_db.Cafe_q.find_one({"cafe_code":cafe_code})
+    if r == None :
+        raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
+    newvalues = {"$set":{"now_queue":r["now_queue"]+1}}
+    app_db.Cafe_q.update_one(query1,newvalues)
+    return{
+        "result" : "done"
+    }

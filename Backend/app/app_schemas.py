@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
 
-from zmq import QUEUE
 
 #token for auth
 class Token(BaseModel):
@@ -47,3 +46,11 @@ class NumberSit(BaseModel):
     user_in : int
     user_out : int
     now_sit : int
+
+#user phone
+class Phone(BaseModel):
+    number : int
+
+#for count user
+class UpUser(BaseModel):
+    in_out : int
