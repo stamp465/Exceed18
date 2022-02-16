@@ -59,7 +59,7 @@ def check_auth_allow(cafe_code:int,cafe_name:str,user_cafe_code:int,user_cafe_na
     if ( user_cafe_code == cafe_code ) and  ( cafe_name == user_cafe_name ) :
         #print("xxxx")
         return True
-    raise HTTPException(405, "Method Not Allowed")
+    raise HTTPException(405, "Method Not Allowed --- user not match with auth")
 
 def authenticate_user(fake_db, username: str, password: str):
     user = get_user(fake_db, username)

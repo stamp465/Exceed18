@@ -26,11 +26,13 @@ class QueueInDB(BaseModel):
     queue_number : int
     name : str
     phone : str
+    willsit : str
     cafe_code : int
     
 class WillQueueInDB(BaseModel):
     name : str
     phone : str
+    willsit : str
 
     
 #count queue in cafe

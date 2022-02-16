@@ -58,6 +58,7 @@ def insert_queue(cafe_name:str,cafe_code:int,data:app_sch.WillQueueInDB):
             "cafe_code": cafe_code,
             "name": data.name,
             "phone": data.phone,
+            "willsit" : data.willsit,
             "queue_number":   app_ser.get_queuenumber(cafe_code) + 1 
         }
         app_db.Queue.insert_one(data2)
@@ -189,6 +190,14 @@ async def clear_queue(cafe_name:str,cafe_code:int,current_user:app_sch.User = De
     if re == None :
         raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe "})
     app_db.Queue.delete_many(query)
+    
+    r = app_db.Cafe_q.find_one({"cafe_code":cafe_code})
+    if r == None :
+        raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
+    query1 = {"cafe_code":cafe_code}
+    newvalues = {"$set":{"now_queue":0,"last_queue":0}}
+    app_db.Cafe_q.update_one(query1,newvalues)
+    
     return {
         "result" : "done"
     }
