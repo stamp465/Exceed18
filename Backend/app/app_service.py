@@ -53,9 +53,13 @@ def get_queuenumber(cafe_code: int):
     if result != None :
         #print(result["last_queue"])
         return result["last_queue"]
-    HTTPException(404, f"Cafe Not found")
+    raise HTTPException(404, f"Cafe Not found")
     
-   
+def check_auth_allow(cafe_code:int,cafe_name:str,user_cafe_code:int,user_cafe_name:str) :
+    if ( user_cafe_code == cafe_code ) and  ( cafe_name == user_cafe_name ) :
+        #print("xxxx")
+        return True
+    raise HTTPException(405, "Method Not Allowed")
 
 def authenticate_user(fake_db, username: str, password: str):
     user = get_user(fake_db, username)

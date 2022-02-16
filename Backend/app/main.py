@@ -95,7 +95,7 @@ async def get_number_byphone(cafe_name:str,cafe_code:int,phone:app_sch.Phone):
     query = {"phone":phone.number , "cafe_code":cafe_code}
     result =  app_db.Queue.find_one(query,{"_id":0})
     if result == None :
-        raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
+        raise HTTPException (status_code = 404 , detail = {"msg" : "no queue with this phone"})
     return result["queue_number"]
 
 @app.get("/{cafe_name}/{cafe_code}/get_number_now_sit")
@@ -143,6 +143,7 @@ async def update_in_out(cafe_name:str,cafe_code:int,updateuser:app_sch.UpUser):
 @app.post("/login", response_model=app_sch.Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     users_db = app_ser.get_user_from_db()
+    #print(users_db)
     user = app_ser.authenticate_user(users_db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -159,12 +160,16 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 @app.get("/users/me", response_model=app_sch.User)     
 async def read_users_me(current_user: app_sch.User = Depends(app_ser.get_current_user)):
+    #print(current_user.cafe_code)
     return current_user
 
 
 @app.get("/{cafe_name}/{cafe_code}/getqueue")
 async def get_queue(cafe_name:str,cafe_code:int,current_user: app_sch.User = Depends(app_ser.get_current_user)):
     app_ser.check_matching(cafe_code,cafe_name)
+    app_ser.check_auth_allow(cafe_code,cafe_name,current_user.cafe_code,current_user.cafe_name)
+    print(current_user.cafe_name,current_user.cafe_code)
+    #print(type(current_user.cafe_code))
     result = app_db.Queue.find({"cafe_code":cafe_code},{"_id":0})
     if result == None :
         raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe "})
@@ -178,6 +183,7 @@ async def get_queue(cafe_name:str,cafe_code:int,current_user: app_sch.User = Dep
 @app.delete("/{cafe_name}/{cafe_code}/clearqueue")
 async def clear_queue(cafe_name:str,cafe_code:int,current_user:app_sch.User = Depends(app_ser.get_current_user)):
     app_ser.check_matching(cafe_code,cafe_name)
+    app_ser.check_auth_allow(cafe_code,cafe_name,current_user.cafe_code,current_user.cafe_name)
     query = {"cafe_code":cafe_code}
     re = app_db.Queue.find_one({"cafe_code":cafe_code})
     if re == None :
@@ -190,6 +196,7 @@ async def clear_queue(cafe_name:str,cafe_code:int,current_user:app_sch.User = De
 @app.delete("/{cafe_name}/{cafe_code}/deletequeue/{queue_number}")
 async def clear_queue(cafe_name:str,cafe_code:int,queue_number:str,current_user:app_sch.User = Depends(app_ser.get_current_user)):
     app_ser.check_matching(cafe_code,cafe_name)
+    app_ser.check_auth_allow(cafe_code,cafe_name,current_user.cafe_code,current_user.cafe_name)
     re = app_db.Queue.find_one({"cafe_code":cafe_code,"queue_number":int(queue_number)})
     if re == None :
         raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe or no queue_number"})
