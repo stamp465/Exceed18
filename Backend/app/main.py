@@ -83,7 +83,7 @@ async def get_queue(cafe_name:str,cafe_code:int):
     r = app_db.Cafe_q.find_one({"cafe_code":cafe_code},{"_id":0})
     if r == None :
         raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
-    waitQ = r["last_queue"]-r["now_queue"]+1
+    waitQ = r["last_queue"]-r["now_queue"]
     return {
         "now_queue" : r["now_queue"],
         "last_queue" : r["last_queue"] ,
@@ -106,7 +106,9 @@ async def get_number_sit(cafe_name:str,cafe_code:int):
     result =  app_db.Cafe_sit.find_one(query,{"_id":0})
     if result == None :
         raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
-    return result["now_sit"]
+    return {
+        "now_sit" : result["now_sit"]
+    }
 
 @app.get("/{cafe_name}/{cafe_code}/get_number_sit")
 async def get_number_sit(cafe_name:str,cafe_code:int):
@@ -121,20 +123,35 @@ async def get_number_sit(cafe_name:str,cafe_code:int):
         "user_in" : r["user_in"] ,
         "user_out" : r["user_out"] 
     }
-    
-@app.put("/{cafe_name}/{cafe_code}/update")
+
+
+status_in = 0
+status_out = 0
+@app.post("/{cafe_name}/{cafe_code}/update")
 async def update_in_out(cafe_name:str,cafe_code:int,updateuser:app_sch.UpUser):
     app_ser.check_matching(cafe_code,cafe_name)
     query = {"cafe_code":cafe_code}
+    print(updateuser)
+    print(updateuser.sensor_in)
+    print(updateuser.sensor_out)
+    
     r =  app_db.Cafe_sit.find_one(query,{"_id":0})
     if r == None :
         raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
-    if updateuser.in_out == 1 :
+    if updateuser.sensor_in == 1 and status_in == 0:
+        status_in = 1
         newvalues = {"$set":{"now_sit":r["now_sit"]+1,"user_in":r["user_in"]+1}}
         app_db.Cafe_sit.update_one(query,newvalues)
-    elif updateuser.in_out == -1 :
+    elif updateuser.sensor_in == 0 and status_in == 1:
+        status_in = 0
+        
+    if updateuser.sensor_out == 1 and status_out == 0:
+        status_out = 1
         newvalues = {"$set":{"now_sit":r["now_sit"]-1,"user_out":r["user_out"]+1}}
         app_db.Cafe_sit.update_one(query,newvalues)
+    elif updateuser.sensor_out == 0 and status_out == 1:
+        status_out = 0
+    
     return {
         "result" : "update done"
     }

@@ -26,13 +26,13 @@ class QueueInDB(BaseModel):
     queue_number : int
     name : str
     phone : str
-    willsit : str
+    willsit : int
     cafe_code : int
     
 class WillQueueInDB(BaseModel):
     name : str
     phone : str
-    willsit : str
+    willsit : int
 
     
 #count queue in cafe
@@ -55,4 +55,6 @@ class Phone(BaseModel):
 
 #for count user
 class UpUser(BaseModel):
-    in_out : int
+    sensor_in : str
+    sensor_out : str
+
