@@ -65,7 +65,7 @@ def insert_queue(cafe_name:str,cafe_code:int,data:app_sch.WillQueueInDB):
         #print(r)
         newvalues = {}
         if r["last_queue"] == 0 :
-            newvalues = {"$set":{"now_queue":r["now_queue"]+1,"last_queue":r["last_queue"]+1}}
+            newvalues = {"$set":{"now_queue":r["now_queue"],"last_queue":r["last_queue"]+1}}
         else :
             newvalues = {"$set":{"last_queue":r["last_queue"]+1}}
         app_db.Cafe_q.update_one({"cafe_code":cafe_code},newvalues)
