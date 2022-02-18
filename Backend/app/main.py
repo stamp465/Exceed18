@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 import re
 from typing import Optional
+from h11 import Data
 from jose import JWTError, jwt
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -75,7 +76,38 @@ def insert_queue(cafe_name:str,cafe_code:int,data:app_sch.WillQueueInDB):
         }
     a = result["queue_number"]
     raise HTTPException( status_code = 406 , detail = { "msg" : f"Your phone already queue in Queue No.{a}" } )
+
+
+@app.post("/{cafe_name}/{cafe_code}/insertorder")
+def insert_order(cafe_name:str,cafe_code:int,data:app_sch.OrderData):
+    app_ser.check_matching(cafe_code,cafe_name)
     
+    query = {"phone":data.phone , "cafe_code":cafe_code}
+    result =  app_db.Queue.find_one(query,{"_id":0})
+    
+    
+    #print(query,result)
+    if result == None :
+        raise HTTPException( status_code = 404 , detail = {"msg" : "this cafe no this number in queue"})
+
+    r = app_db.Order.find_one(query,{"_id":0})
+    if r == None :
+        data3 = {
+            "cafe_code" : cafe_code,
+            "phone": data.phone,
+            "cappucino": data.cappucino,
+            "hot_coco": data.hot_coco,
+            "ice_cream_cake" : data.ice_cream_cake,
+            "already_pay":   data.already_pay
+        }
+        app_db.Order.insert_one(data3)
+        return {
+            "result" : "insert_order done"
+        }
+ 
+    raise HTTPException( status_code = 406 , detail = { "msg" : f"Your phone already ordered" } )
+
+
 
 @app.get("/{cafe_name}/{cafe_code}/countqueue")
 async def get_queue(cafe_name:str,cafe_code:int):
@@ -90,14 +122,36 @@ async def get_queue(cafe_name:str,cafe_code:int):
         "wait_queue" : waitQ
     }
 
-@app.get("/{cafe_name}/{cafe_code}/get_number_byphone")
-async def get_number_byphone(cafe_name:str,cafe_code:int,phone:app_sch.Phone):
+@app.get("/{cafe_name}/{cafe_code}/get_number_byphone/{get_number_byphone}")
+async def get_number_byphone(cafe_name:str,cafe_code:int,get_number_byphone:str): 
+    #phone:app_sch.Phone
     app_ser.check_matching(cafe_code,cafe_name)
-    query = {"phone":phone.number , "cafe_code":cafe_code}
+    query = {"phone":get_number_byphone , "cafe_code":cafe_code}
     result =  app_db.Queue.find_one(query,{"_id":0})
     if result == None :
         raise HTTPException (status_code = 404 , detail = {"msg" : "no queue with this phone"})
-    return result["queue_number"]
+    return {
+        "name" : result["name"],
+        "phone" : result["phone"],
+        "willsit" : result["willsit"],
+        "queue_number" : result["queue_number"]
+    }
+
+@app.get("/{cafe_name}/{cafe_code}/order/{get_order_byphone}")
+async def get_order_byphonexxx(cafe_name:str,cafe_code:int,get_order_byphone:str): 
+    #phone:app_sch.Phone
+    app_ser.check_matching(cafe_code,cafe_name)
+    query = {"phone":get_order_byphone , "cafe_code":cafe_code}
+    result =  app_db.Order.find_one(query,{"_id":0})
+    if result == None :
+        raise HTTPException (status_code = 404 , detail = {"msg" : "no order of this phone"})
+    return {
+        "phone" : result["phone"],
+        "cappucino" : result["cappucino"],
+        "hot_coco" : result["hot_coco"],
+        "ice_cream_cake" : result["ice_cream_cake"],
+        "already_pay" : result["already_pay"]
+    }
 
 @app.get("/{cafe_name}/{cafe_code}/get_number_now_sit")
 async def get_number_sit(cafe_name:str,cafe_code:int):
@@ -125,32 +179,62 @@ async def get_number_sit(cafe_name:str,cafe_code:int):
     }
 
 
-status_in = 0
-status_out = 0
 @app.post("/{cafe_name}/{cafe_code}/update")
-async def update_in_out(cafe_name:str,cafe_code:int,updateuser:app_sch.UpUser):
+def update_in_out(cafe_name:str,cafe_code:int,updateuser:app_sch.UpUser):
     app_ser.check_matching(cafe_code,cafe_name)
     query = {"cafe_code":cafe_code}
     print(updateuser)
-    print(updateuser.sensor_in)
-    print(updateuser.sensor_out)
+    print("sensor_in =",updateuser.sensor_in)
+    print("sensor_out =",updateuser.sensor_out)
     
     r =  app_db.Cafe_sit.find_one(query,{"_id":0})
     if r == None :
         raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
-    if updateuser.sensor_in == 1 and status_in == 0:
-        status_in = 1
-        newvalues = {"$set":{"now_sit":r["now_sit"]+1,"user_in":r["user_in"]+1}}
+    if int(updateuser.sensor_in) == 1 and r["status_in"] == 0:
+        newvalues = {"$set":{"now_sit":r["now_sit"]+1,"user_in":r["user_in"]+1,"status_in":1}}
         app_db.Cafe_sit.update_one(query,newvalues)
-    elif updateuser.sensor_in == 0 and status_in == 1:
-        status_in = 0
+    elif int(updateuser.sensor_in) == 0 and r["status_in"] == 1:
+        newvalues = {"$set":{"status_in":0}}
+        app_db.Cafe_sit.update_one(query,newvalues)
         
-    if updateuser.sensor_out == 1 and status_out == 0:
-        status_out = 1
-        newvalues = {"$set":{"now_sit":r["now_sit"]-1,"user_out":r["user_out"]+1}}
+    if int(updateuser.sensor_out) == 1 and r["status_out"] == 0:
+        if r["now_sit"] > 0 :
+            newvalues = {"$set":{"now_sit":r["now_sit"]-1,"user_out":r["user_out"]+1,"status_out":1}}
+        else :
+            newvalues = {"$set":{"now_sit":r["now_sit"]-1,"user_out":r["user_out"]+1,"status_out":1}}
         app_db.Cafe_sit.update_one(query,newvalues)
-    elif updateuser.sensor_out == 0 and status_out == 1:
-        status_out = 0
+    elif int(updateuser.sensor_out) == 0 and r["status_out"] == 1:
+        newvalues = {"$set":{"status_out":0}}
+        app_db.Cafe_sit.update_one(query,newvalues)
+    
+    return {
+        "result" : "update done"
+    }
+
+
+@app.post("/{cafe_name}/{cafe_code}/update_2")
+def update_in_out(cafe_name:str,cafe_code:int,updateuser:app_sch.UpUser):
+    app_ser.check_matching(cafe_code,cafe_name)
+    query = {"cafe_code":cafe_code}
+    print(updateuser)
+    print("sensor_in =",updateuser.sensor_in)
+    print("sensor_out =",updateuser.sensor_out)
+    
+    r =  app_db.Cafe_sit.find_one(query,{"_id":0})
+    if r == None :
+        raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
+    
+    if r["now_sit"] <= 0 :
+        updateuser.sensor_out = 0
+
+    newvalues = {"$set":{
+        "user_in":r["user_in"]+int(updateuser.sensor_in),
+        "user_out":r["user_out"]+int(updateuser.sensor_out),
+        "now_sit":(r["user_in"]+int(updateuser.sensor_in))-(r["user_out"]+int(updateuser.sensor_out)),
+        }
+    }
+    app_db.Cafe_sit.update_one(query,newvalues)
+
     
     return {
         "result" : "update done"
@@ -186,14 +270,14 @@ async def read_users_me(current_user: app_sch.User = Depends(app_ser.get_current
 async def get_queue(cafe_name:str,cafe_code:int,current_user: app_sch.User = Depends(app_ser.get_current_user)):
     app_ser.check_matching(cafe_code,cafe_name)
     app_ser.check_auth_allow(cafe_code,cafe_name,current_user.cafe_code,current_user.cafe_name)
-    print(current_user.cafe_name,current_user.cafe_code)
+    #print(current_user.cafe_name,current_user.cafe_code)
     #print(type(current_user.cafe_code))
     result = app_db.Queue.find({"cafe_code":cafe_code},{"_id":0})
     if result == None :
         raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe "})
     lis = []
     for i in result :
-        print(i)
+        #print(i)
         lis.append(i)
     return lis
 
@@ -207,6 +291,7 @@ async def clear_queue(cafe_name:str,cafe_code:int,current_user:app_sch.User = De
     if re == None :
         raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe "})
     app_db.Queue.delete_many(query)
+    app_db.Order.delete_many(query)
     
     r = app_db.Cafe_q.find_one({"cafe_code":cafe_code})
     if r == None :
@@ -216,11 +301,11 @@ async def clear_queue(cafe_name:str,cafe_code:int,current_user:app_sch.User = De
     app_db.Cafe_q.update_one(query1,newvalues)
     
     return {
-        "result" : "done"
+        "result" : "clear done"
     }
 
 @app.delete("/{cafe_name}/{cafe_code}/deletequeue/{queue_number}")
-async def clear_queue(cafe_name:str,cafe_code:int,queue_number:str,current_user:app_sch.User = Depends(app_ser.get_current_user)):
+async def delete_queue(cafe_name:str,cafe_code:int,queue_number:str,current_user:app_sch.User = Depends(app_ser.get_current_user)):
     app_ser.check_matching(cafe_code,cafe_name)
     app_ser.check_auth_allow(cafe_code,cafe_name,current_user.cafe_code,current_user.cafe_name)
     re = app_db.Queue.find_one({"cafe_code":cafe_code,"queue_number":int(queue_number)})
@@ -231,11 +316,20 @@ async def clear_queue(cafe_name:str,cafe_code:int,queue_number:str,current_user:
         raise HTTPException (status_code = 404 , detail = {"msg" : "no cafe"})
     
     query = {"cafe_code":cafe_code,"queue_number":int(queue_number)}
+    query = {"cafe_code":cafe_code,"phone":re["phone"] }
     #print(query)
     app_db.Queue.delete_one(query)
-    query1 = {"cafe_code":cafe_code}
-    newvalues = {"$set":{"now_queue":r["now_queue"]+1}}
-    app_db.Cafe_q.update_one(query1,newvalues)
+    app_db.Order.delete_many(query)
+    
+    if r["now_queue"]+1 == r["last_queue"] :
+        query1 = {"cafe_code":cafe_code}
+        newvalues = {"$set":{"now_queue":0,"last_queue":0}}
+        app_db.Cafe_q.update_one(query1,newvalues)
+        
+    else :
+        query1 = {"cafe_code":cafe_code}
+        newvalues = {"$set":{"now_queue":r["now_queue"]+1}}
+        app_db.Cafe_q.update_one(query1,newvalues)
     return{
-        "result" : "done"
+        "result" : "delete done"
     }

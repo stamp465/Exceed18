@@ -51,10 +51,18 @@ class NumberSit(BaseModel):
 
 #user phone
 class Phone(BaseModel):
-    number : str
+    phone : str
 
 #for count user
 class UpUser(BaseModel):
     sensor_in : str
     sensor_out : str
 
+
+#for ordered
+class OrderData(BaseModel):
+    phone : str
+    cappucino : int
+    hot_coco : int
+    ice_cream_cake : int
+    already_pay : bool
